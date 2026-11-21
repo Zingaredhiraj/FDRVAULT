@@ -101,11 +101,11 @@ export default function LoginVaultScene({ isSuccess, isFailure }) {
 
     // Animation loop
     let animId;
-    let clock = new THREE.Clock();
+    const startTime = performance.now();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const elapsed = clock.getElapsedTime();
+      const elapsed = (performance.now() - startTime) * 0.001;
 
       // Gentle rotation
       outerRing.rotation.z = elapsed * 0.15;

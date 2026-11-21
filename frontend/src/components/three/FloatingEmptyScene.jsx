@@ -72,11 +72,11 @@ export default function FloatingEmptyScene() {
     }
 
     let animId;
-    let clock = new THREE.Clock();
+    const startTime = performance.now();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const elapsed = clock.getElapsedTime();
+      const elapsed = (performance.now() - startTime) * 0.001;
 
       meshes.forEach((item, idx) => {
         item.mesh.position.y = item.y + Math.sin(elapsed * item.speed + idx) * 0.15;

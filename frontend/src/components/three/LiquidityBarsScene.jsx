@@ -81,11 +81,11 @@ export default function LiquidityBarsScene({ months = [] }) {
     scene.add(barGroup);
 
     let animId;
-    let clock = new THREE.Clock();
+    const startTime = performance.now();
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      const elapsed = clock.getElapsedTime();
+      const elapsed = (performance.now() - startTime) * 0.001;
       barGroup.rotation.y = Math.sin(elapsed * 0.5) * 0.15;
       renderer.render(scene, camera);
     };

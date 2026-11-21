@@ -167,7 +167,7 @@ export default function UsersPage() {
     {
       header: 'Role',
       render: row => {
-        const role = row.role || '';
+        const role = typeof row.role === 'string' ? row.role : (row.role?.name || '');
         const roleColors = {
           SUPER_ADMIN: 'bg-purple-100 text-purple-800 dark:bg-purple-950/50 dark:text-purple-300',
           FINANCE_OFFICER: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300',
@@ -178,7 +178,7 @@ export default function UsersPage() {
         };
         return (
           <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${roleColors[role] || 'bg-slate-100 text-slate-700'}`}>
-            {typeof role === 'string' ? role.replace(/_/g, ' ') : String(role || '')}
+            {role ? String(role).replace(/_/g, ' ') : '—'}
           </span>
         );
       },

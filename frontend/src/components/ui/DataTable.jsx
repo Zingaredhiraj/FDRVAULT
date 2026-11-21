@@ -70,7 +70,11 @@ export default function DataTable({
                       key={cIdx}
                       className={`px-4 py-3.5 align-middle ${col.cellClassName || ''}`}
                     >
-                      {col.render ? col.render(row, rIdx) : (row[col.accessor || col.key] ?? '')}
+                      {col.render
+                        ? col.render(row, rIdx)
+                        : typeof row[col.accessor || col.key] === 'object' && row[col.accessor || col.key] !== null
+                        ? (row[col.accessor || col.key]?.name || JSON.stringify(row[col.accessor || col.key]))
+                        : (row[col.accessor || col.key] ?? '')}
                     </td>
                   ))}
                 </tr>

@@ -26,7 +26,7 @@ export default function DataTable({
                   key={idx}
                   className={`px-4 py-3.5 whitespace-nowrap ${col.className || ''}`}
                 >
-                  {col.header}
+                  {col.header || col.label || col.title || ''}
                 </th>
               ))}
             </tr>
@@ -70,7 +70,7 @@ export default function DataTable({
                       key={cIdx}
                       className={`px-4 py-3.5 align-middle ${col.cellClassName || ''}`}
                     >
-                      {col.render ? col.render(row, rIdx) : row[col.accessor]}
+                      {col.render ? col.render(row, rIdx) : (row[col.accessor || col.key] ?? '')}
                     </td>
                   ))}
                 </tr>

@@ -1,12 +1,27 @@
 import { Router } from 'express';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { sendSuccess } from '../utils/response';
 import { prisma } from '../prisma';
 import { AccessTokenPayload } from '../utils/crypto';
 import { getTodayIST, getCurrentFinancialYearRange } from '../utils/indianDate';
+import { appCache, buildCacheKey, getCacheTtlMs } from '../utils/cache';
 
 const router = Router();
 router.use(authenticate);
+
+/** Helper: return cached value or compute, store, and return fresh value. */
+async function withCache<T>(
+  actor: AccessTokenPayload,
+  routeName: string,
+  compute: () => Promise<T>
+): Promise<T> {
+  const key = buildCacheKey(actor.role, actor.institutionId, routeName);
+  const cached = appCache.get(key) as T | undefined;
+  if (cached !== undefined) return cached;
+  const data = await compute();
+  appCache.set(key, data as unknown, getCacheTtlMs());
+  return data;
+}
 
 async function getKpis(actor: AccessTokenPayload) {
   const today = getTodayIST();
@@ -86,7 +101,7 @@ async function getKpis(actor: AccessTokenPayload) {
 
 router.get('/kpis', async (req, res, next) => {
   try {
-    const data = await getKpis(req.user!);
+    const data = await withCache(req.user!, 'dashboard:kpis', () => getKpis(req.user!));
     sendSuccess(res, data);
   } catch (err) { next(err); }
 });
@@ -94,183 +109,165 @@ router.get('/kpis', async (req, res, next) => {
 router.get('/maturity-forecast', async (req, res, next) => {
   try {
     const actor = req.user!;
-    const today = getTodayIST();
-    const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
-
-    // Get 12-month forecast
-    const months: Array<{ month: string; count: number; totalAmount: string }> = [];
-    for (let i = 0; i < 12; i++) {
-      const start = new Date(Date.UTC(today.getFullYear(), today.getMonth() + i, 1));
-      const end = new Date(Date.UTC(today.getFullYear(), today.getMonth() + i + 1, 0));
-
-      const [count, agg] = await Promise.all([
-        prisma.fdr.count({
-          where: { deletedAt: null, maturityDate: { gte: start, lte: end }, ...institutionFilter },
-        }),
-        prisma.fdr.aggregate({
-          where: { deletedAt: null, maturityDate: { gte: start, lte: end }, ...institutionFilter },
-          _sum: { maturityAmount: true },
-        }),
-      ]);
-
-      months.push({
-        month: start.toLocaleString('en-IN', { month: 'short', year: 'numeric' }),
-        count,
-        totalAmount: (agg._sum.maturityAmount || BigInt(0)).toString(),
-      });
-    }
-
-    sendSuccess(res, months);
+    const data = await withCache(actor, 'dashboard:maturity-forecast', async () => {
+      const today = getTodayIST();
+      const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
+      const months: Array<{ month: string; count: number; totalAmount: string }> = [];
+      for (let i = 0; i < 12; i++) {
+        const start = new Date(Date.UTC(today.getFullYear(), today.getMonth() + i, 1));
+        const end = new Date(Date.UTC(today.getFullYear(), today.getMonth() + i + 1, 0));
+        const [count, agg] = await Promise.all([
+          prisma.fdr.count({ where: { deletedAt: null, maturityDate: { gte: start, lte: end }, ...institutionFilter } }),
+          prisma.fdr.aggregate({ where: { deletedAt: null, maturityDate: { gte: start, lte: end }, ...institutionFilter }, _sum: { maturityAmount: true } }),
+        ]);
+        months.push({
+          month: start.toLocaleString('en-IN', { month: 'short', year: 'numeric' }),
+          count,
+          totalAmount: (agg._sum.maturityAmount || BigInt(0)).toString(),
+        });
+      }
+      return months;
+    });
+    sendSuccess(res, data);
   } catch (err) { next(err); }
 });
 
 router.get('/status-distribution', async (req, res, next) => {
   try {
     const actor = req.user!;
-    const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
-
-    const statusCounts = await prisma.fdr.groupBy({
-      by: ['status'],
-      where: { deletedAt: null, ...institutionFilter },
-      _count: { status: true },
-      _sum: { principal: true },
+    const data = await withCache(actor, 'dashboard:status-distribution', async () => {
+      const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
+      const statusCounts = await prisma.fdr.groupBy({
+        by: ['status'],
+        where: { deletedAt: null, ...institutionFilter },
+        _count: { status: true },
+        _sum: { principal: true },
+      });
+      return statusCounts.map(s => ({
+        status: s.status,
+        count: s._count.status,
+        totalPrincipal: (s._sum.principal || BigInt(0)).toString(),
+      }));
     });
-
-    const result = statusCounts.map(s => ({
-      status: s.status,
-      count: s._count.status,
-      totalPrincipal: (s._sum.principal || BigInt(0)).toString(),
-    }));
-
-    sendSuccess(res, result);
+    sendSuccess(res, data);
   } catch (err) { next(err); }
 });
 
 router.get('/bank-wise', async (req, res, next) => {
   try {
     const actor = req.user!;
-    const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
-
-    const bankData = await prisma.fdr.groupBy({
-      by: ['bankId'],
-      where: { deletedAt: null, status: { notIn: ['RELEASED', 'CLOSED', 'ENCASHED'] }, ...institutionFilter },
-      _count: { bankId: true },
-      _sum: { principal: true },
+    const data = await withCache(actor, 'dashboard:bank-wise', async () => {
+      const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
+      const bankData = await prisma.fdr.groupBy({
+        by: ['bankId'],
+        where: { deletedAt: null, status: { notIn: ['RELEASED', 'CLOSED', 'ENCASHED'] }, ...institutionFilter },
+        _count: { bankId: true },
+        _sum: { principal: true },
+      });
+      const banks = await prisma.bank.findMany({ select: { id: true, name: true, shortCode: true } });
+      const bankMap = new Map(banks.map(b => [b.id, b]));
+      return bankData.map(d => ({
+        bank: bankMap.get(d.bankId),
+        count: d._count.bankId,
+        totalPrincipal: (d._sum.principal || BigInt(0)).toString(),
+      }));
     });
-
-    const banks = await prisma.bank.findMany({ select: { id: true, name: true, shortCode: true } });
-    const bankMap = new Map(banks.map(b => [b.id, b]));
-
-    const result = bankData.map(d => ({
-      bank: bankMap.get(d.bankId),
-      count: d._count.bankId,
-      totalPrincipal: (d._sum.principal || BigInt(0)).toString(),
-    }));
-
-    sendSuccess(res, result);
+    sendSuccess(res, data);
   } catch (err) { next(err); }
 });
 
 router.get('/state-wise', async (req, res, next) => {
   try {
     const actor = req.user!;
-    const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
-
-    // Group institutions by state
-    const stateData = await prisma.institution.groupBy({
-      by: ['state'],
-      where: { deletedAt: null },
-      _count: { state: true },
+    const data = await withCache(actor, 'dashboard:state-wise', async () => {
+      const stateData = await prisma.institution.groupBy({
+        by: ['state'],
+        where: { deletedAt: null },
+        _count: { state: true },
+      });
+      return stateData.map(d => ({ state: d.state, institutionCount: d._count.state }));
     });
-
-    sendSuccess(res, stateData.map(d => ({ state: d.state, institutionCount: d._count.state })));
+    sendSuccess(res, data);
   } catch (err) { next(err); }
 });
 
 router.get('/deposit-trend', async (req, res, next) => {
   try {
     const actor = req.user!;
-    const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
-    const today = getTodayIST();
-
-    const trend: Array<{ month: string; deposited: string; released: string }> = [];
-    for (let i = 11; i >= 0; i--) {
-      const start = new Date(Date.UTC(today.getFullYear(), today.getMonth() - i, 1));
-      const end = new Date(Date.UTC(today.getFullYear(), today.getMonth() - i + 1, 0));
-
-      const [depositedAgg, releasedAgg] = await Promise.all([
-        prisma.fdr.aggregate({
-          where: { deletedAt: null, issueDate: { gte: start, lte: end }, ...institutionFilter },
-          _sum: { principal: true },
-        }),
-        prisma.releaseRequest.aggregate({
-          where: {
-            status: 'RELEASED',
-            releaseDate: { gte: start, lte: end },
-            ...(actor.role === 'INSTITUTION_USER' && { fdr: { institutionId: actor.institutionId } }),
-          },
-          _sum: { releasedAmount: true },
-        }),
-      ]);
-
-      trend.push({
-        month: start.toLocaleString('en-IN', { month: 'short', year: '2-digit' }),
-        deposited: (depositedAgg._sum.principal || BigInt(0)).toString(),
-        released: (releasedAgg._sum.releasedAmount || BigInt(0)).toString(),
-      });
-    }
-
-    sendSuccess(res, trend);
+    const data = await withCache(actor, 'dashboard:deposit-trend', async () => {
+      const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
+      const today = getTodayIST();
+      const trend: Array<{ month: string; deposited: string; released: string }> = [];
+      for (let i = 11; i >= 0; i--) {
+        const start = new Date(Date.UTC(today.getFullYear(), today.getMonth() - i, 1));
+        const end = new Date(Date.UTC(today.getFullYear(), today.getMonth() - i + 1, 0));
+        const [depositedAgg, releasedAgg] = await Promise.all([
+          prisma.fdr.aggregate({ where: { deletedAt: null, issueDate: { gte: start, lte: end }, ...institutionFilter }, _sum: { principal: true } }),
+          prisma.releaseRequest.aggregate({
+            where: {
+              status: 'RELEASED',
+              releaseDate: { gte: start, lte: end },
+              ...(actor.role === 'INSTITUTION_USER' && { fdr: { institutionId: actor.institutionId } }),
+            },
+            _sum: { releasedAmount: true },
+          }),
+        ]);
+        trend.push({
+          month: start.toLocaleString('en-IN', { month: 'short', year: '2-digit' }),
+          deposited: (depositedAgg._sum.principal || BigInt(0)).toString(),
+          released: (releasedAgg._sum.releasedAmount || BigInt(0)).toString(),
+        });
+      }
+      return trend;
+    });
+    sendSuccess(res, data);
   } catch (err) { next(err); }
 });
 
 router.get('/recent-activity', async (req, res, next) => {
   try {
-    const recent = await prisma.auditLog.findMany({
-      take: 20,
-      orderBy: { createdAt: 'desc' },
-      include: { user: { select: { id: true, name: true, role: true } } },
+    const actor = req.user!;
+    const data = await withCache(actor, 'dashboard:recent-activity', async () => {
+      return prisma.auditLog.findMany({
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, name: true, role: true } } },
+      });
     });
-    sendSuccess(res, recent);
+    sendSuccess(res, data);
   } catch (err) { next(err); }
 });
 
 router.get('/calendar', async (req, res, next) => {
   try {
     const actor = req.user!;
-    const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
-
-    const today = getTodayIST();
-    const start = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
-    const end = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 3, 0));
-
-    const fdrs = await prisma.fdr.findMany({
-      where: {
-        deletedAt: null,
-        maturityDate: { gte: start, lte: end },
-        ...institutionFilter,
-      },
-      select: {
-        id: true,
-        fdrNumber: true,
-        maturityDate: true,
-        principal: true,
-        status: true,
-        institution: { select: { id: true, name: true } },
-      },
+    const data = await withCache(actor, 'dashboard:calendar', async () => {
+      const institutionFilter = actor.role === 'INSTITUTION_USER' ? { institutionId: actor.institutionId } : {};
+      const today = getTodayIST();
+      const start = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+      const end = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 3, 0));
+      const fdrs = await prisma.fdr.findMany({
+        where: { deletedAt: null, maturityDate: { gte: start, lte: end }, ...institutionFilter },
+        select: {
+          id: true,
+          fdrNumber: true,
+          maturityDate: true,
+          principal: true,
+          status: true,
+          institution: { select: { id: true, name: true } },
+        },
+      });
+      return fdrs.map(fdr => ({
+        id: fdr.id,
+        fdrNumber: fdr.fdrNumber,
+        maturityDate: fdr.maturityDate,
+        principal: fdr.principal.toString(),
+        status: fdr.status,
+        institution: fdr.institution,
+        daysToMaturity: diffDays(fdr.maturityDate, today),
+      }));
     });
-
-    const calendarData = fdrs.map(fdr => ({
-      id: fdr.id,
-      fdrNumber: fdr.fdrNumber,
-      maturityDate: fdr.maturityDate,
-      principal: fdr.principal.toString(),
-      status: fdr.status,
-      institution: fdr.institution,
-      daysToMaturity: diffDays(fdr.maturityDate, today),
-    }));
-
-    sendSuccess(res, calendarData);
+    sendSuccess(res, data);
   } catch (err) { next(err); }
 });
 

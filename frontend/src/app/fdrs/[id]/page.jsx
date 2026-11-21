@@ -271,6 +271,137 @@ export default function FdrDetailPage() {
           </div>
         </div>
 
+        {/* Next-Best-Action Smart Guidance Banner */}
+        <div className="p-4 rounded-2xl border flex items-center justify-between gap-4 bg-gradient-to-r from-slate-50 to-indigo-50/30 dark:from-slate-900 dark:to-indigo-950/20 border-slate-200 dark:border-slate-800 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl ${
+              fdr.status === 'MATURED'
+                ? 'bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400'
+                : fdr.status === 'NEAR_MATURITY'
+                ? 'bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400'
+                : fdr.status === 'RELEASE_REQUESTED'
+                ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400'
+                : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
+            }`}>
+              <Info className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Next-Best Action Recommendation
+              </p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white mt-0.5">
+                {fdr.status === 'MATURED'
+                  ? `Deposit matured on ${formatDate(fdr.maturityDate)}. Initiate authorized release order or record child renewal.`
+                  : fdr.status === 'NEAR_MATURITY'
+                  ? `Deposit maturing in ${fdr.daysToMaturity ?? 'few'} days. Initiate renewal communication with institution accounts.`
+                  : fdr.status === 'RELEASE_REQUESTED'
+                  ? 'Release request is active in scrutiny workflow. Monitor verification & approval checkpoints.'
+                  : fdr.status === 'RENEWED'
+                  ? 'Deposit lifecycle renewed into child FDR certificate.'
+                  : `Active deposit compliant. Scheduled maturity: ${formatDate(fdr.maturityDate)}.`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {canInitiateRelease && fdr.status === 'MATURED' && (
+              <Button size="sm" variant="primary" onClick={() => setReleaseOpen(true)}>
+                Initiate Release
+              </Button>
+            )}
+            <a href="/renewals">
+              <Button size="sm" variant="secondary">
+                Renewals Queue
+              </Button>
+            </a>
+          </div>
+        </div>
+
+        {/* 4-Gate Release Policy Checklist & Document Completeness Ring */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Completeness Ring */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col items-center justify-center text-center">
+            <div className="relative w-20 h-20 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-slate-100 dark:text-slate-800"
+                  strokeWidth="3.5"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={verifiedDocTypes.length === 3 ? 'text-emerald-500' : verifiedDocTypes.length > 0 ? 'text-amber-500' : 'text-red-500'}
+                  strokeDasharray={`${(verifiedDocTypes.length / 3) * 100}, 100`}
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <span className="absolute text-sm font-bold font-mono text-slate-800 dark:text-slate-100">
+                {verifiedDocTypes.length}/3
+              </span>
+            </div>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-2">
+              Mandatory Documents
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {isDocComplete ? 'All 3 Verified' : `${3 - verifiedDocTypes.length} Pending Verification`}
+            </p>
+          </div>
+
+          {/* Gate 1 Card */}
+          <div className={`p-4 rounded-3xl border flex flex-col justify-between ${
+            isDocComplete ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gate A: Verification</span>
+              {isDocComplete ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+            </div>
+            <div className="mt-2">
+              <p className="text-xs font-bold text-slate-900 dark:text-white">Document Complete</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {isDocComplete ? 'FDR scan, bank letter & lien verified.' : `Missing: ${missingDocs.join(', ') || 'Verification'}`}
+              </p>
+            </div>
+          </div>
+
+          {/* Gate 2 Card */}
+          <div className={`p-4 rounded-3xl border flex flex-col justify-between ${
+            isMatured || premature ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gate B: Maturity</span>
+              {isMatured || premature ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <AlertOctagon className="w-4 h-4 text-amber-600" />}
+            </div>
+            <div className="mt-2">
+              <p className="text-xs font-bold text-slate-900 dark:text-white">
+                {isMatured ? 'Maturity Reached' : 'Premature Gate'}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {isMatured ? `Matured on ${formatDate(fdr.maturityDate)}` : 'Requires approved premature justification'}
+              </p>
+            </div>
+          </div>
+
+          {/* Gate 3 & 4 Card */}
+          <div className={`p-4 rounded-3xl border flex flex-col justify-between ${
+            !hasPendingDues && !hasOpenRelease ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Gate C & D: Dues & Concurrency</span>
+              {!hasPendingDues && !hasOpenRelease ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+            </div>
+            <div className="mt-2">
+              <p className="text-xs font-bold text-slate-900 dark:text-white">Institution Dues</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {hasPendingDues ? 'Blocked: Pending dues recorded.' : hasOpenRelease ? 'Blocked: Active release in flight.' : 'Zero dues outstanding.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Release Gate Alert Banner if blocked */}
         {isReleaseBlocked && (
           <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 space-y-1.5">

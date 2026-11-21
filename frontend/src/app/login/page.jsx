@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { ShieldCheck, Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import LoginVaultScene from '../../components/three/LoginVaultScene';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -13,17 +14,20 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const demoAccounts = [
-    { role: 'SUPER_ADMIN', label: 'Super Admin', email: 'admin@aicte.demo' },
-    { role: 'FINANCE_OFFICER', label: 'Finance Officer', email: 'finance@aicte.demo' },
-    { role: 'VERIFIER', label: 'Verifier (Checker)', email: 'verifier@aicte.demo' },
-    { role: 'APPROVING_AUTHORITY', label: 'Approving Authority', email: 'authority@aicte.demo' },
-    { role: 'INSTITUTION_USER', label: 'Institution #1', email: 'institution@aicte.demo' },
-    { role: 'AUDITOR', label: 'Auditor (Read-Only)', email: 'auditor@aicte.demo' },
+    { role: 'SUPER_ADMIN', label: 'Super Admin', subtitle: 'e-Governance Director', email: 'admin@aicte.gov.in' },
+    { role: 'FINANCE_OFFICER', label: 'Finance Officer', subtitle: 'AICTE HQ Maker', email: 'finance@aicte.gov.in' },
+    { role: 'VERIFIER', label: 'Verifier (Checker)', subtitle: 'Scrutiny Officer', email: 'verifier@aicte.gov.in' },
+    { role: 'APPROVING_AUTHORITY', label: 'Approving Authority', subtitle: 'Member Secretary', email: 'authority@aicte.gov.in' },
+    { role: 'INSTITUTION_USER', label: 'COEP Technological Univ', subtitle: 'Institution Principal', email: 'director@coep.ac.in' },
+    { role: 'AUDITOR', label: 'CAG Auditor', subtitle: 'Read-Only Inspector', email: 'auditor@cag.gov.in' },
   ];
 
-  const handleDemoFill = (accEmail) => {
+  const handleQuickLogin = async (accEmail) => {
     setEmail(accEmail);
     setPassword('Demo@1234');
+    setLoading(true);
+    await login(accEmail, 'Demo@1234');
+    setLoading(false);
   };
 
   const handleSubmit = async (e) => {
@@ -36,8 +40,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 dark:bg-slate-950">
-      {/* Left Column: Brand Hero with Gradient */}
+      {/* Left Column: Brand Hero with Gradient & 3D Vault Scene */}
       <div className="md:w-1/2 bg-gradient-to-br from-[#0B1F4B] via-[#102a6b] to-[#07132e] text-white p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden">
+        <LoginVaultScene isSuccess={false} isFailure={false} />
         {/* Decorative background blurs */}
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[#FF9933]/15 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
@@ -161,11 +166,11 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Demo Login Chips */}
+          {/* Official AICTE Personas */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Demo Accounts (Click to Fill)
+                Select Persona (1-Click Login)
               </span>
               <span className="text-[11px] text-[#FF9933] font-semibold">Password: Demo@1234</span>
             </div>
@@ -175,17 +180,21 @@ export default function LoginPage() {
                 <button
                   key={acc.role}
                   type="button"
-                  onClick={() => handleDemoFill(acc.email)}
+                  onClick={() => handleQuickLogin(acc.email)}
                   className={`text-left p-2.5 rounded-xl border text-xs transition-all ${
                     email === acc.email
                       ? 'border-[#0B1F4B] bg-[#0B1F4B]/5 dark:border-blue-400 dark:bg-blue-950/30 font-bold'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-[#0B1F4B] dark:hover:border-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                   }`}
+                  title={`Sign in as ${acc.label} (${acc.email})`}
                 >
                   <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                     {acc.label}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-mono truncate">{acc.email}</p>
+                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium truncate">
+                    {acc.subtitle}
+                  </p>
+                  <p className="text-[9px] text-slate-400 font-mono truncate">{acc.email}</p>
                 </button>
               ))}
             </div>

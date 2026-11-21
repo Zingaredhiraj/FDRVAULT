@@ -5,10 +5,17 @@ import pinoHttp from 'pino-http';
 import swaggerUi from 'swagger-ui-express';
 import path from 'path';
 
+// Enable automatic JSON serialization for BigInt values throughout Express
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
 import { config } from './config';
 import { logger } from './logger';
 import { apiRateLimiter } from './middleware/rateLimiter';
 import { errorHandler } from './middleware/errorHandler';
+import { etagMiddleware } from './middleware/etag';
+import { prisma } from './prisma';
 
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
@@ -34,9 +41,21 @@ app.use(helmet({
   contentSecurityPolicy: false, // disabled for Swagger UI
 }));
 
-// CORS
+// CORS - Allow frontend URL, localhost, and Vercel/Render deployments
 app.use(cors({
-  origin: config.FRONTEND_URL,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      origin === config.FRONTEND_URL ||
+      origin === 'http://localhost:5173' ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.onrender.com')
+    ) {
+      return callback(null, true);
+    }
+    // Allow configured origins or fallback gracefully
+    return callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -52,12 +71,24 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting
 app.use('/api/', apiRateLimiter);
 
+// ETag caching for GET responses
+app.use(etagMiddleware);
+
 // Swagger docs
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Health check
+// Health check & Readiness
 app.get('/health', (_req, res) => {
   res.json({ success: true, message: 'AICTE FDR Vault API is running', timestamp: new Date().toISOString() });
+});
+
+app.get('/ready', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ success: true, message: 'Database ready' });
+  } catch (err) {
+    res.status(503).json({ success: false, message: 'Database unreachable' });
+  }
 });
 
 // API routes

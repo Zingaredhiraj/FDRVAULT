@@ -141,7 +141,20 @@ export async function runAlertJob(): Promise<AlertJobResult> {
       select: { id: true },
     });
 
+    const todayStart = new Date(today);
+    todayStart.setHours(0, 0, 0, 0);
+
     for (const verifier of verifiers) {
+      const existingDocNotification = await prisma.notification.findFirst({
+        where: {
+          userId: verifier.id,
+          type: 'DOCUMENT_PENDING',
+          createdAt: { gte: todayStart },
+        },
+      });
+
+      if (existingDocNotification) continue;
+
       await createNotification({
         userId: verifier.id,
         title: `${pendingDocs.length} document(s) pending verification for 2+ days`,

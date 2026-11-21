@@ -32,6 +32,10 @@ export function paiseToRupees(paise) {
   return Number(paise) / 100;
 }
 
+export function formatINRCompact(paise) {
+  return formatINR(paise, true);
+}
+
 export function rupeesToPaise(rupees) {
   if (!rupees) return '0';
   return String(Math.round(Number(rupees) * 100));

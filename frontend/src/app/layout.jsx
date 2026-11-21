@@ -2,6 +2,8 @@ import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { Toaster } from 'react-hot-toast';
+import ServiceWorkerRegister from '../components/ServiceWorkerRegister';
+import QueryProvider from '../context/QueryProvider';
 
 export const metadata = {
   title: 'AICTE FDR Vault — Transparent. Tracked. Timely.',
@@ -14,7 +16,10 @@ export default function RootLayout({ children }) {
       <body className="antialiased min-h-screen bg-slate-50 dark:bg-slate-950">
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <QueryProvider>
+              <ServiceWorkerRegister />
+              {children}
+            </QueryProvider>
             <Toaster
               position="top-right"
               toastOptions={{

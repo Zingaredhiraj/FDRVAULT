@@ -12,6 +12,7 @@ import { AccessTokenPayload } from '../utils/crypto';
 import { getTodayIST } from '../utils/indianDate';
 import { parsePagination } from '../utils/pagination';
 import { paginationMeta } from '../utils/response';
+import { appCache } from '../utils/cache';
 
 const RELEASES_PDF_DIR = path.join(process.cwd(), 'uploads', 'releases');
 
@@ -22,10 +23,19 @@ function ensureReleasesDir() {
 }
 
 function serializeRelease(r: Record<string, unknown>) {
+  const fdr = r.fdr as Record<string, unknown> | undefined;
   return {
     ...r,
-    releasedAmount: r.releasedAmount !== undefined ? String(r.releasedAmount) : null,
-    deductions: r.deductions !== undefined ? String(r.deductions) : '0',
+    releasedAmount: r.releasedAmount !== undefined && r.releasedAmount !== null ? String(r.releasedAmount) : null,
+    deductions: r.deductions !== undefined && r.deductions !== null ? String(r.deductions) : '0',
+    ...(fdr && {
+      fdr: {
+        ...fdr,
+        principal: fdr.principal !== undefined ? String(fdr.principal) : undefined,
+        maturityAmount: fdr.maturityAmount !== undefined ? String(fdr.maturityAmount) : undefined,
+        quarterlyPayout: fdr.quarterlyPayout !== undefined ? String(fdr.quarterlyPayout) : undefined,
+      },
+    }),
   };
 }
 
@@ -288,6 +298,8 @@ export async function createReleaseRequest(
     ipAddress,
   });
 
+  appCache.clear();
+
   return release;
 }
 
@@ -307,6 +319,8 @@ export async function submitReleaseRequest(id: string, actor: AccessTokenPayload
 
   await notifyReleaseStatusChange(release.fdrId, id, 'SUBMITTED', actor);
   await appendAuditLog({ userId: actor.sub, action: 'UPDATE', entity: 'ReleaseRequest', entityId: id, newValue: { status: 'SUBMITTED' }, ipAddress });
+
+  appCache.clear();
 
   return updated;
 }
@@ -331,6 +345,8 @@ export async function verifyReleaseRequest(id: string, remarks: string | undefin
 
   await notifyReleaseStatusChange(release.fdrId, id, 'VERIFIED', actor);
   await appendAuditLog({ userId: actor.sub, action: 'VERIFY', entity: 'ReleaseRequest', entityId: id, newValue: { status: 'VERIFIED' }, ipAddress });
+
+  appCache.clear();
 
   return updated;
 }
@@ -358,6 +374,8 @@ export async function rejectReleaseRequest(id: string, remarks: string, actor: A
 
   await notifyReleaseStatusChange(release.fdrId, id, 'REJECTED', actor);
   await appendAuditLog({ userId: actor.sub, action: 'REJECT', entity: 'ReleaseRequest', entityId: id, newValue: { status: 'DRAFT', remarks }, ipAddress });
+
+  appCache.clear();
 
   return updated;
 }
@@ -391,6 +409,8 @@ export async function approveReleaseRequest(id: string, remarks: string | undefi
 
   await notifyReleaseStatusChange(release.fdrId, id, 'APPROVED', actor);
   await appendAuditLog({ userId: actor.sub, action: 'APPROVE', entity: 'ReleaseRequest', entityId: id, newValue: { status: 'APPROVED' }, ipAddress });
+
+  appCache.clear();
 
   return updated;
 }
@@ -462,6 +482,8 @@ export async function markReleased(
   await notifyReleaseStatusChange(release.fdrId, id, 'RELEASED', actor);
   await appendAuditLog({ userId: actor.sub, action: 'RELEASE', entity: 'ReleaseRequest', entityId: id, newValue: { status: 'RELEASED', utr: data.utr }, ipAddress });
 
+  appCache.clear();
+
   return serializeRelease(updated as unknown as Record<string, unknown>);
 }
 
@@ -471,10 +493,46 @@ export async function getReleasePdf(id: string, actor: AccessTokenPayload) {
       id,
       ...(actor.role === 'INSTITUTION_USER' && { fdr: { institutionId: actor.institutionId } }),
     },
+    include: {
+      fdr: {
+        include: {
+          institution: { select: { name: true, aicteId: true } },
+          bank: { select: { name: true } },
+        },
+      },
+    },
   });
-  if (!release || !release.pdfPath) throw new NotFoundError('Release PDF');
-  if (!fs.existsSync(release.pdfPath)) throw new AppError('PDF file not found on server', 404);
-  return { filePath: release.pdfPath, referenceNumber: release.referenceNumber };
+  if (!release) throw new NotFoundError('Release request');
+
+  if (release.status !== 'RELEASED' && release.status !== 'APPROVED') {
+    throw new AppError('Release order PDF is only available once approved or released', 400);
+  }
+
+  let filePath = release.pdfPath;
+  if (!filePath || !fs.existsSync(filePath)) {
+    filePath = await generateReleasePdf({
+      id: release.id,
+      referenceNumber: release.referenceNumber,
+      fdr: {
+        fdrNumber: release.fdr.fdrNumber,
+        institution: release.fdr.institution,
+        bank: release.fdr.bank,
+        principal: release.fdr.principal,
+        maturityAmount: release.fdr.maturityAmount,
+      },
+      releaseDate: release.releaseDate || new Date(),
+      utr: release.utr || `UTR${Date.now()}`,
+      releasedAmount: release.releasedAmount || release.fdr.maturityAmount,
+      deductions: release.deductions || BigInt(0),
+      deductionReason: release.deductionReason,
+    });
+    await prisma.releaseRequest.update({
+      where: { id: release.id },
+      data: { pdfPath: filePath },
+    });
+  }
+
+  return { filePath, referenceNumber: release.referenceNumber };
 }
 
 async function notifyReleaseStatusChange(fdrId: string, releaseId: string, status: string, actor: AccessTokenPayload) {

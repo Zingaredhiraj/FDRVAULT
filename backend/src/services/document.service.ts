@@ -9,6 +9,7 @@ import { DocumentType, DocumentVerificationStatus, REQUIRED_DOCUMENT_TYPES, ALLO
 import { AccessTokenPayload } from '../utils/crypto';
 import { paginationMeta } from '../utils/response';
 import { parsePagination } from '../utils/pagination';
+import { appCache } from '../utils/cache';
 
 const UPLOAD_BASE = path.join(process.cwd(), 'uploads');
 
@@ -139,6 +140,8 @@ export async function uploadDocument(
     ipAddress,
   });
 
+  appCache.clear();
+
   return doc;
 }
 
@@ -225,6 +228,8 @@ export async function verifyDocument(
     ipAddress,
   });
 
+  appCache.clear();
+
   return updated;
 }
 
@@ -271,6 +276,8 @@ export async function rejectDocument(
     newValue: { verificationStatus: 'REJECTED', remarks },
     ipAddress,
   });
+
+  appCache.clear();
 
   return updated;
 }

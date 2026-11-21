@@ -142,8 +142,8 @@ export default function ReportsPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {loading ? (
                     <tr><td colSpan={7} className="p-8 text-center text-slate-400">Loading report...</td></tr>
-                  ) : reportData.map(f => (
-                    <tr key={f.id} className="hover:bg-slate-50/50">
+                  ) : reportData.map((f, idx) => (
+                    <tr key={f.id || idx} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3 font-mono font-bold text-blue-600">{f.fdrNumber}</td>
                       <td className="px-4 py-3 font-medium">{f.institution?.name}</td>
                       <td className="px-4 py-3">{f.bank?.name}</td>
@@ -172,7 +172,7 @@ export default function ReportsPage() {
                   {loading ? (
                     <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading report...</td></tr>
                   ) : reportData.map((d, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50">
+                    <tr key={d.id || d.bank?.id || idx} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{d.bank?.name}</td>
                       <td className="px-4 py-3 font-mono">{d.bank?.shortCode}</td>
                       <td className="px-4 py-3 font-semibold">{d.count} FDRs</td>
@@ -199,8 +199,8 @@ export default function ReportsPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {loading ? (
                     <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading report...</td></tr>
-                  ) : reportData.map(inst => (
-                    <tr key={inst.id} className="hover:bg-slate-50/50">
+                  ) : reportData.map((inst, idx) => (
+                    <tr key={inst.id || inst.aicteId || idx} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3 font-mono font-bold text-blue-600">{inst.aicteId}</td>
                       <td className="px-4 py-3 font-medium">{inst.name}</td>
                       <td className="px-4 py-3">{inst.state}</td>
@@ -228,8 +228,8 @@ export default function ReportsPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {loading ? (
                     <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading report...</td></tr>
-                  ) : reportData.map(r => (
-                    <tr key={r.id} className="hover:bg-slate-50/50">
+                  ) : reportData.map((r, idx) => (
+                    <tr key={r.id || idx} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3 font-mono font-bold text-blue-600">{r.referenceNumber}</td>
                       <td className="px-4 py-3 font-mono">{r.fdr?.fdrNumber}</td>
                       <td className="px-4 py-3 font-medium">{r.fdr?.institution?.name}</td>
@@ -256,8 +256,8 @@ export default function ReportsPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {loading ? (
                     <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading report...</td></tr>
-                  ) : reportData.map(a => (
-                    <tr key={a.id} className="hover:bg-slate-50/50">
+                  ) : reportData.map((a, idx) => (
+                    <tr key={a.id || idx} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3 font-mono">{formatDate(a.createdAt)}</td>
                       <td className="px-4 py-3 font-medium">{a.user?.name || 'System'}</td>
                       <td className="px-4 py-3 font-bold text-blue-600">{a.action}</td>

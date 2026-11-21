@@ -7,14 +7,24 @@ import { parsePagination, parseSort } from '../utils/pagination';
 import { paginationMeta } from '../utils/response';
 import { AccessTokenPayload } from '../utils/crypto';
 import { getTodayIST } from '../utils/indianDate';
+import { appCache } from '../utils/cache';
 
 function serializeFdr(fdr: Record<string, unknown>) {
   // Convert BigInt fields to strings for JSON serialization
+  const releaseRequests = Array.isArray(fdr.releaseRequests)
+    ? fdr.releaseRequests.map((rr: Record<string, unknown>) => ({
+        ...rr,
+        releasedAmount: rr.releasedAmount !== undefined && rr.releasedAmount !== null ? String(rr.releasedAmount) : null,
+        deductions: rr.deductions !== undefined && rr.deductions !== null ? String(rr.deductions) : '0',
+      }))
+    : fdr.releaseRequests;
+
   return {
     ...fdr,
     principal: fdr.principal !== undefined ? String(fdr.principal) : undefined,
     maturityAmount: fdr.maturityAmount !== undefined ? String(fdr.maturityAmount) : undefined,
     quarterlyPayout: fdr.quarterlyPayout !== undefined ? String(fdr.quarterlyPayout) : undefined,
+    ...(releaseRequests !== undefined && { releaseRequests }),
   };
 }
 
@@ -209,6 +219,8 @@ export async function createFdr(
     ipAddress,
   });
 
+  appCache.clear();
+
   return serializeFdr(fdr as unknown as Record<string, unknown>);
 }
 
@@ -253,6 +265,8 @@ export async function updateFdr(
     ipAddress,
   });
 
+  appCache.clear();
+
   return serializeFdr(updated as unknown as Record<string, unknown>);
 }
 
@@ -274,6 +288,8 @@ export async function deleteFdr(id: string, actor: AccessTokenPayload, ipAddress
     oldValue: { fdrNumber: fdr.fdrNumber },
     ipAddress,
   });
+
+  appCache.clear();
 }
 
 export async function calculateFdrPreview(

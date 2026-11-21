@@ -21,6 +21,9 @@ import {
   ChevronRight,
   ShieldCheck,
   LogOut,
+  Briefcase,
+  TrendingUp,
+  ShieldAlert,
 } from 'lucide-react';
 
 export default function Sidebar({ collapsed, setCollapsed }) {
@@ -28,6 +31,12 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   const { user, logout } = useAuth();
 
   const navItems = [
+    {
+      label: 'My Work',
+      href: '/my-work',
+      icon: Briefcase,
+      roles: ['SUPER_ADMIN', 'FINANCE_OFFICER', 'VERIFIER', 'APPROVING_AUTHORITY', 'INSTITUTION_USER'],
+    },
     {
       label: 'Dashboard',
       href: '/',
@@ -53,6 +62,12 @@ export default function Sidebar({ collapsed, setCollapsed }) {
       roles: ['SUPER_ADMIN', 'FINANCE_OFFICER', 'VERIFIER', 'APPROVING_AUTHORITY', 'INSTITUTION_USER', 'AUDITOR'],
     },
     {
+      label: 'Liquidity Ladder',
+      href: '/liquidity-ladder',
+      icon: TrendingUp,
+      roles: ['SUPER_ADMIN', 'FINANCE_OFFICER', 'APPROVING_AUTHORITY', 'AUDITOR'],
+    },
+    {
       label: 'Renewals',
       href: '/renewals',
       icon: RefreshCw,
@@ -63,6 +78,12 @@ export default function Sidebar({ collapsed, setCollapsed }) {
       href: '/documents',
       icon: FileCheck,
       roles: ['SUPER_ADMIN', 'VERIFIER'],
+    },
+    {
+      label: 'Risk Center',
+      href: '/risk',
+      icon: ShieldAlert,
+      roles: ['SUPER_ADMIN', 'VERIFIER', 'APPROVING_AUTHORITY', 'AUDITOR'],
     },
     {
       label: 'Release Requests',

@@ -17,7 +17,7 @@ async function ensureDatabaseInitialized() {
       logger.info('📦 Initializing cloud database schema and official seed...');
       try {
         execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
-        execSync('npx tsx prisma/seed.ts', { stdio: 'inherit' });
+        execSync('npx tsx prisma/seed.ts --clean', { stdio: 'inherit' });
         logger.info('✅ Cloud database schema & initial seed ready.');
       } catch (cmdErr) {
         logger.warn({ err: cmdErr }, 'Automatic db push/seed command skipped, continuing server startup');

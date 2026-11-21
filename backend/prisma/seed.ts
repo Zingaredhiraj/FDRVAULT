@@ -114,6 +114,27 @@ async function main() {
   const banks = await Promise.all(bankData.map(b => prisma.bank.create({ data: b })));
   console.log(`✅ Created ${banks.length} banks`);
 
+  const isClean = process.argv.includes('--clean') || process.env.CLEAN_START === 'true' || process.env.CLEAN_DB === 'true';
+  if (isClean) {
+    const pwd = await hashPwd('Demo@1234');
+    await prisma.user.createMany({
+      data: [
+        { email: 'admin@aicte.gov.in', passwordHash: pwd, role: 'SUPER_ADMIN', name: 'Dr. R. K. Sharma (Director e-Governance)', phone: '011-29581001' },
+        { email: 'finance@aicte.gov.in', passwordHash: pwd, role: 'FINANCE_OFFICER', name: 'Smt. Ananya Sen (Chief Finance Officer)', phone: '011-29581002' },
+        { email: 'verifier@aicte.gov.in', passwordHash: pwd, role: 'VERIFIER', name: 'Shri Vikram Malhotra (Assistant Scrutiny Officer)', phone: '011-29581003' },
+        { email: 'authority@aicte.gov.in', passwordHash: pwd, role: 'APPROVING_AUTHORITY', name: 'Prof. Rajive Kumar (Member Secretary, AICTE)', phone: '011-29581004' },
+        { email: 'auditor@cag.gov.in', passwordHash: pwd, role: 'AUDITOR', name: 'Shri Arvind Rao (Principal Director of Audit, CAG)', phone: '011-23235678' },
+        { email: 'admin@aicte.demo', passwordHash: pwd, role: 'SUPER_ADMIN', name: 'Super Admin', phone: '9000000001' },
+        { email: 'finance@aicte.demo', passwordHash: pwd, role: 'FINANCE_OFFICER', name: 'Finance Officer', phone: '9000000002' },
+        { email: 'verifier@aicte.demo', passwordHash: pwd, role: 'VERIFIER', name: 'Verifier User', phone: '9000000003' },
+        { email: 'authority@aicte.demo', passwordHash: pwd, role: 'APPROVING_AUTHORITY', name: 'Approving Authority', phone: '9000000004' },
+        { email: 'auditor@aicte.demo', passwordHash: pwd, role: 'AUDITOR', name: 'Auditor User', phone: '9000000006' },
+      ],
+    });
+    console.log('✨ Clean database initialized successfully with zero institutions and zero FDRs.');
+    return;
+  }
+
   // Real AICTE-Approved Technical Institutions (40)
   const realInstitutions = [
     {

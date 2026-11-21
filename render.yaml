@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     rootDir: backend
-    buildCommand: pnpm install && npx prisma generate && npx prisma db push --accept-data-loss && npx tsx prisma/seed.ts && pnpm run build
+    buildCommand: pnpm install && npx prisma generate && npx prisma db push --accept-data-loss && npx tsx prisma/seed.ts --clean && pnpm run build
     startCommand: npx prisma db push --accept-data-loss && node dist/index.js
     envVars:
       - key: NODE_ENV

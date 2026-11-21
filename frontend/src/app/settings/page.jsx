@@ -20,6 +20,8 @@ import {
   Sliders,
   Shield,
   RefreshCw,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,6 +45,24 @@ export default function SettingsPage() {
   const [runningStatusJob, setRunningStatusJob] = useState(false);
   const [runningAlertJob, setRunningAlertJob] = useState(false);
   const [lastJobResult, setLastJobResult] = useState(null);
+  const [cleaningDb, setCleaningDb] = useState(false);
+
+  async function handleCleanRecords() {
+    if (!window.confirm('⚠️ ATTENTION: Are you sure you want to permanently delete ALL institutions, FDR deposits, documents, and release workflows? This will wipe the application clean for handover. Admin credentials will remain intact.')) {
+      return;
+    }
+    setCleaningDb(true);
+    try {
+      const res = await api.post('/settings/clean-records');
+      if (res.data?.success) {
+        toast.success('All records permanently deleted! The application is completely clean.');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to clean database');
+    } finally {
+      setCleaningDb(false);
+    }
+  }
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
@@ -329,6 +349,33 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </form>
+
+            {/* Danger Zone: Clean Database for Handover */}
+            <div className="border border-rose-200 dark:border-rose-950/60 bg-rose-50/40 dark:bg-rose-950/20 rounded-2xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-rose-900 dark:text-rose-200">
+                    Handover Cleanup / Zero Database
+                  </h3>
+                  <p className="text-xs text-rose-700/80 dark:text-rose-400 mt-1">
+                    Completely erase all demo institutions, FDR records, OCR documents, release requests, and audit trails. Preserves essential Super Admin and officer accounts so you can log into a totally clean system.
+                  </p>
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleCleanRecords}
+                      loading={cleaningDb}
+                      className="!bg-rose-600 hover:!bg-rose-700 !text-white flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Completely Clean Application Records</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

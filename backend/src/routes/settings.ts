@@ -29,4 +29,18 @@ router.put('/:key', authorize('SUPER_ADMIN'), validateBody(updateSettingSchema),
   } catch (err) { next(err); }
 });
 
+router.post('/clean-records', authorize('SUPER_ADMIN'), async (_req, res, next) => {
+  try {
+    await prisma.alertLog.deleteMany();
+    await prisma.releaseStep.deleteMany();
+    await prisma.releaseRequest.deleteMany();
+    await prisma.document.deleteMany();
+    await prisma.auditLog.deleteMany();
+    await prisma.fdr.deleteMany();
+    await prisma.notification.deleteMany();
+    await prisma.institution.deleteMany();
+    sendSuccess(res, { cleaned: true }, 'All institutions, FDRs, documents, and transactional records cleaned successfully.');
+  } catch (err) { next(err); }
+});
+
 export default router;

@@ -89,6 +89,15 @@ router.delete('/:id', authorize('SUPER_ADMIN'), async (req, res, next) => {
   }
 });
 
+router.post('/:id/restore', authorize('SUPER_ADMIN'), async (req, res, next) => {
+  try {
+    const inst = await institutionService.restoreInstitution(req.params.id as string, req.user!, req.ip);
+    sendSuccess(res, inst, 'Institution restored successfully');
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.patch(
   '/:id/pending-dues',
   authorize('SUPER_ADMIN', 'FINANCE_OFFICER'),

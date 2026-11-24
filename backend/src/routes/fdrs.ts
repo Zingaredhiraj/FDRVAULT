@@ -151,6 +151,15 @@ router.delete('/:id', authorize('SUPER_ADMIN', 'FINANCE_OFFICER'), async (req, r
   }
 });
 
+router.post('/:id/restore', authorize('SUPER_ADMIN', 'FINANCE_OFFICER'), async (req, res, next) => {
+  try {
+    const fdr = await fdrService.restoreFdr(req.params.id as string, req.user!, req.ip);
+    sendSuccess(res, fdr, 'FDR restored successfully');
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.use('/:fdrId/documents', fdrDocumentRouter);
 router.use('/:fdrId/renew', renewalRouter);
 

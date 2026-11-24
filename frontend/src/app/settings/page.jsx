@@ -46,6 +46,24 @@ export default function SettingsPage() {
   const [runningAlertJob, setRunningAlertJob] = useState(false);
   const [lastJobResult, setLastJobResult] = useState(null);
   const [cleaningDb, setCleaningDb] = useState(false);
+  const [populatingDb, setPopulatingDb] = useState(false);
+
+  async function handlePopulateTenRecords() {
+    if (!window.confirm('Populate 10 technical records (8 active, 2 deleted) into the database?')) {
+      return;
+    }
+    setPopulatingDb(true);
+    try {
+      const res = await api.post('/settings/populate-ten-records');
+      if (res.data?.success) {
+        toast.success('Successfully populated 10 records (8 active, 2 deleted)!');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to populate records');
+    } finally {
+      setPopulatingDb(false);
+    }
+  }
 
   async function handleCleanRecords() {
     if (!window.confirm('⚠️ ATTENTION: Are you sure you want to permanently delete ALL institutions, FDR deposits, documents, and release workflows? This will wipe the application clean for handover. Admin credentials will remain intact.')) {
@@ -363,7 +381,16 @@ export default function SettingsPage() {
                   <p className="text-xs text-rose-700/80 dark:text-rose-400 mt-1">
                     Completely erase all demo institutions, FDR records, OCR documents, release requests, and audit trails. Preserves essential Super Admin and officer accounts so you can log into a totally clean system.
                   </p>
-                  <div className="mt-4">
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Button
+                      onClick={handlePopulateTenRecords}
+                      loading={populatingDb}
+                      variant="secondary"
+                      className="flex items-center gap-2 border border-slate-300 dark:border-slate-700 !text-slate-800 dark:!text-slate-200"
+                    >
+                      <RefreshCw className="w-4 h-4 text-blue-600" />
+                      <span>Populate 10 Records (8 Active, 2 Deleted)</span>
+                    </Button>
                     <Button
                       onClick={handleCleanRecords}
                       loading={cleaningDb}

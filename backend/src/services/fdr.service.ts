@@ -40,14 +40,23 @@ export async function listFdrs(query: Record<string, unknown>, actor: AccessToke
 
   const today = getTodayIST();
 
-  const where: any = { deletedAt: null };
+  const showDeleted = String(query.showDeleted || '');
+  const where: any = {};
+  if (showDeleted === 'only' || query.status === 'DELETED') {
+    where.deletedAt = { not: null };
+  } else if (showDeleted === 'all') {
+    // include both active and deleted
+  } else {
+    where.deletedAt = null;
+  }
+
   if (institutionFilter) {
     where.institutionId = institutionFilter;
   } else if (query.institutionId) {
     where.institutionId = String(query.institutionId);
   }
   if (query.bankId) where.bankId = String(query.bankId);
-  if (query.status) where.status = String(query.status);
+  if (query.status && query.status !== 'DELETED') where.status = String(query.status);
   if (query.purpose) where.purpose = String(query.purpose);
   if (query.academicYear) where.academicYear = String(query.academicYear);
   if (search) {
@@ -290,6 +299,32 @@ export async function deleteFdr(id: string, actor: AccessTokenPayload, ipAddress
   });
 
   appCache.clear();
+}
+
+export async function restoreFdr(id: string, actor: AccessTokenPayload, ipAddress?: string) {
+  const fdr = await prisma.fdr.findFirst({ where: { id, deletedAt: { not: null } } });
+  if (!fdr) throw new NotFoundError('Deleted FDR');
+
+  const restored = await prisma.fdr.update({
+    where: { id },
+    data: { deletedAt: null },
+    include: {
+      institution: { select: { id: true, name: true, aicteId: true } },
+      bank: { select: { id: true, name: true, shortCode: true } },
+    },
+  });
+
+  await appendAuditLog({
+    userId: actor.sub,
+    action: 'RESTORE',
+    entity: 'Fdr',
+    entityId: id,
+    newValue: { fdrNumber: fdr.fdrNumber },
+    ipAddress,
+  });
+
+  appCache.clear();
+  return serializeFdr(restored as unknown as Record<string, unknown>);
 }
 
 export async function calculateFdrPreview(

@@ -182,6 +182,7 @@ export const AuditAction = z.enum([
   'REJECT',
   'RELEASE',
   'REVOKE_TOKENS',
+  'RESTORE',
 ]);
 export type AuditAction = z.infer<typeof AuditAction>;
 

@@ -5,6 +5,7 @@ import { InstitutionType, InstitutionApprovalStatus } from '../constants';
 import { parsePagination, parseSort } from '../utils/pagination';
 import { paginationMeta } from '../utils/response';
 import { AccessTokenPayload } from '../utils/crypto';
+import { appCache } from '../utils/cache';
 
 export async function listInstitutions(query: Record<string, unknown>, actor: AccessTokenPayload) {
   const { skip, take, page, pageSize } = parsePagination(query);
@@ -18,9 +19,16 @@ export async function listInstitutions(query: Record<string, unknown>, actor: Ac
     return { institutions: inst ? [inst] : [], meta: paginationMeta(inst ? 1 : 0, 1, 1) };
   }
 
-  const where: any = {
-    deletedAt: null,
-  };
+  const showDeleted = String(query.showDeleted || '');
+  const where: any = {};
+  if (showDeleted === 'only' || query.status === 'DELETED') {
+    where.deletedAt = { not: null };
+  } else if (showDeleted === 'all') {
+    // include both
+  } else {
+    where.deletedAt = null;
+  }
+
   if (search) {
     where.OR = [
       { name: { contains: search } },
@@ -151,6 +159,28 @@ export async function deleteInstitution(id: string, actorId: string, ipAddress?:
     oldValue: { name: inst.name, aicteId: inst.aicteId },
     ipAddress,
   });
+}
+
+export async function restoreInstitution(id: string, actor: AccessTokenPayload, ipAddress?: string) {
+  const inst = await prisma.institution.findFirst({ where: { id, deletedAt: { not: null } } });
+  if (!inst) throw new NotFoundError('Deleted Institution');
+
+  const restored = await prisma.institution.update({
+    where: { id },
+    data: { deletedAt: null },
+  });
+
+  await appendAuditLog({
+    userId: actor.sub,
+    action: 'RESTORE',
+    entity: 'Institution',
+    entityId: id,
+    newValue: { name: inst.name, aicteId: inst.aicteId },
+    ipAddress,
+  });
+
+  appCache.clear();
+  return restored;
 }
 
 export async function updatePendingDues(

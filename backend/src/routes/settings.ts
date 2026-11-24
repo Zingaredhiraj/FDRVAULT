@@ -43,4 +43,12 @@ router.post('/clean-records', authorize('SUPER_ADMIN'), async (_req, res, next) 
   } catch (err) { next(err); }
 });
 
+router.post('/populate-ten-records', authorize('SUPER_ADMIN'), async (_req, res, next) => {
+  try {
+    const { seedTenRecords } = await import('../services/seed.service');
+    const result = await seedTenRecords(prisma);
+    sendSuccess(res, { populated: true, ...result }, 'Successfully populated 10 official technical records (8 active, 2 deleted).');
+  } catch (err) { next(err); }
+});
+
 export default router;

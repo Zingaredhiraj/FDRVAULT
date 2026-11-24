@@ -19,6 +19,7 @@
     "build": "cd backend && pnpm run build && cd ../frontend && pnpm run build",
     "db:seed": "cd backend && npx tsx prisma/seed.ts",
     "db:reset": "cd backend && npx prisma db push --force-reset && npx tsx prisma/seed.ts",
+    "db:seed:ten": "cd backend && npx tsx prisma/seed-ten.ts",
     "db:clean": "cd backend && node -e \"const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); async function main() { await p.alertLog.deleteMany(); await p.releaseStep.deleteMany(); await p.releaseRequest.deleteMany(); await p.document.deleteMany(); await p.auditLog.deleteMany(); await p.fdr.deleteMany(); await p.notification.deleteMany(); await p.institution.deleteMany(); console.log('All institutions, FDRs, and transactional records cleaned successfully.'); } main().finally(() => p.\\$disconnect());\""
   },
   "devDependencies": {
